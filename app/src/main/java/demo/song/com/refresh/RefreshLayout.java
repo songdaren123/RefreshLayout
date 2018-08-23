@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RefreshLayout extends ViewGroup{
-    private String TAG=RefreshLayout.class.getSimpleName();
+    private String TAG = RefreshLayout.class.getSimpleName();
     private HeadView mHeadView;
     private FootView mFootView;
     private RecyclerView mRecyclerView;
@@ -30,21 +30,21 @@ public class RefreshLayout extends ViewGroup{
     private int contentViewTop = 0;
     private int contentViewBottom = 0;
 
-    private int distancTop=0;
+    private int distancTop = 0;
     private List<LastY> lastYList;
 
-    private int contentState=0;
-    private int mContentType=REFRESH_TYPE_DEFAULT;//刷新类型
+    private int contentState = 0;
+    private int mContentType = REFRESH_TYPE_DEFAULT;//刷新类型
 
     private static final int REFRESH_TYPE_DEFAULT = 0;
-    private static final int REFRESH_TYPE_HEAD = 1;
-    private static final int REFRESH_TYPE_BOTTOM = 2;
 
-    private static final int REFRESH_STATE_DEFAULT = 0;
-    private static final int REFRESH_STATE_START = 1;
-    private static final int REFRESH_STATE_SCROLLING = 2;
-    private static final int REFRESH_STATE_END = 3;
+    private static final int REFRESH_STATE_IDLE = 0;
+    private static final int REFRESH_STATE_DRAGGING = 1;
+    private static final int REFRESH_STATE_SCROLLING_TO_HOLD_POSITION = 2;
+    private static final int REFRESH_STATE_SCROLLING_TO_IDLE = 3;
+    private static final int STATE_HOLDING_POSITION = 4;
 
+    private OnRefreshListener mListener;
 
     public RefreshLayout(Context context) {
         this(context, null);
@@ -110,15 +110,24 @@ public class RefreshLayout extends ViewGroup{
     @Override
     public void computeScroll() {
         switch (contentState) {
-            case REFRESH_STATE_DEFAULT:
+            case REFRESH_STATE_IDLE:
                 break;
-            case REFRESH_STATE_START:
-                break;
-            case REFRESH_STATE_SCROLLING:
-                break;
-            case REFRESH_STATE_END:
-                break;
+            case REFRESH_STATE_DRAGGING:
+                Log.i(TAG, "computeScroll: REFRESH_STATE_DRAGGING");
 
+                break;
+            case REFRESH_STATE_SCROLLING_TO_HOLD_POSITION:
+                scrollerToIdle();
+                break;
+            case STATE_HOLDING_POSITION:
+                 break;
+            case REFRESH_STATE_SCROLLING_TO_IDLE:
+                contentState=REFRESH_STATE_IDLE;
+                break;
+        }
+        if (mScroller.computeScrollOffset()) {
+            scrollTo(0, mScroller.getCurrY());
+            postInvalidate();
         }
     }
 
@@ -127,8 +136,7 @@ public class RefreshLayout extends ViewGroup{
         int action = MotionEventCompat.getActionMasked(event);
         switch (action) {
             case MotionEvent.ACTION_DOWN:
-                Log.i(TAG, "onTouchEvent: MotionEvent.ACTION_DOWN:"+event.getPointerCount());
-                lastYList.add(new LastY(event.getActionIndex(),event.getPointerId(event.getActionIndex())));
+                lastYList.add(new LastY((int) event.getY(event.getActionIndex()), event.getPointerId(event.getActionIndex())));
                 break;
             case MotionEvent.ACTION_MOVE:
                 int maxDistance = 0;
@@ -142,44 +150,67 @@ public class RefreshLayout extends ViewGroup{
                         maxDistance = indexDistance;
                     }
                 }
-                Log.i(TAG, "dispatchTouchEvent: " + maxDistance);
-                if (recyclerTop() && maxDistance > 0) {
-//                    scrollBy(0,-(maxDistance/2));
-                    contentState=REFRESH_STATE_START;
-//                    return true;
+                if (recyclerTop() && maxDistance > 0 && contentState != REFRESH_STATE_DRAGGING) {
+                    contentState = REFRESH_STATE_DRAGGING;
+                    if (mListener != null) {
+                        mListener.onRefresh();
+                    }
                 }
-                if(contentState==REFRESH_STATE_START){
-                    scrollBy(0,-(maxDistance/2));
+                if (contentState == REFRESH_STATE_DRAGGING) {
+                    scrollBy(0, -(maxDistance / 2));
+                    if (recyclerTop() && getScrollY() > contentViewTop) {//解决上拉造成的影响
+                        scrollTo(0, contentViewTop);
+                        contentState = REFRESH_STATE_IDLE;
+                        return super.dispatchTouchEvent(event);
+                    }
                     postInvalidate();
                     return true;
                 }
-                Log.i(TAG, "onTouchEvent: MotionEvent.ACTION_MOVE");
                 break;
             case MotionEvent.ACTION_UP:
                 removeLastById(event.getPointerId(event.getActionIndex()));
-                Log.i(TAG, "onTouchEvent: MotionEvent.ACTION_MOVE");
+                if (contentState == REFRESH_STATE_DRAGGING) {
+                    if (mListener != null) {
+                        mListener.onRefreshComplete();
+                    }
+                    scorllToHoldPosition();
+                    return true;
+                }
+
                 break;
             case MotionEvent.ACTION_POINTER_DOWN:
-                Log.i(TAG, "onTouchEvent: ACTION_POINTER_DOWN");
-                lastYList.add(new LastY(event.getActionIndex(),event.getPointerId(event.getActionIndex())));
+                lastYList.add(new LastY(event.getActionIndex(), event.getPointerId(event.getActionIndex())));
                 break;
             case MotionEvent.ACTION_POINTER_UP:
-                Log.i(TAG, "onTouchEvent: ACTION_POINTER_DOWN");
                 removeLastById(event.getPointerId(event.getActionIndex()));
                 break;
         }
         return super.dispatchTouchEvent(event);
     }
 
+    private void scorllToHoldPosition() {
+        contentState = REFRESH_STATE_SCROLLING_TO_HOLD_POSITION;
+        if (getScaleY() <= contentViewTop) {
+            mScroller.startScroll(0, getScrollY(), 0, contentViewTop - getScrollY());
+        }
+        postInvalidate();
+    }
+
+    private void scrollerToIdle() {
+        contentState = REFRESH_STATE_SCROLLING_TO_IDLE;
+        mScroller.startScroll(0, getScrollY(), 0, contentViewTop - getScrollY());
+        postInvalidate();
+    }
+
     /**
      * 判断RecyclerView是否移动到了顶端
+     *
      * @return
      */
     private boolean recyclerTop() {
         LinearLayoutManager manager = (LinearLayoutManager) mRecyclerView.getLayoutManager();
         int firstIndex = manager.findFirstCompletelyVisibleItemPosition();//获取第一个可见得位置
         int childrenCount = manager.getChildCount();//获取所有item 总数
-        Log.i(TAG, "recyclerTop: " + firstIndex);
         return (childrenCount > 0 && firstIndex == 0);
     }
 
@@ -229,11 +260,21 @@ public class RefreshLayout extends ViewGroup{
             this.pointId = pointId;
         }
     }
+
+    public void setOnRefreshListener(OnRefreshListener mListener) {
+        this.mListener = mListener;
+    }
+
     public interface OnRefreshListener {
         /**
-         * Called when a swipe gesture triggers a refresh.
+         * 下拉开始
          */
         void onRefresh();
+
+        /**
+         * 下拉完成
+         */
+        void onRefreshComplete();
     }
 
 }

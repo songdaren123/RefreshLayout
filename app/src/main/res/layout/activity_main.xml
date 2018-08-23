@@ -6,8 +6,10 @@
     tools:context=".MainActivity">
 
     <demo.song.com.refresh.RefreshLayout
+        android:id="@+id/refreshlayout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        >
 
         <demo.song.com.refresh.HeadView
             android:layout_width="match_parent"
