@@ -72,11 +72,12 @@ public class RefreshLayout extends ViewGroup{
         int height = 0;
         for (int i = 0; i < count; i++) {
             View view = getChildAt(i);
-            if (view instanceof RecyclerView) {
-                measureChild(view, widthMeasureSpec, MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(heightMeasureSpec) + distancTop, MeasureSpec.getMode(heightMeasureSpec)));
-            } else {
-                measureChild(view, widthMeasureSpec, heightMeasureSpec);
-            }
+//            if (view instanceof RecyclerView) {
+//                measureChild(view, widthMeasureSpec, MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(heightMeasureSpec) , MeasureSpec.getMode(heightMeasureSpec)));
+//            } else {
+//                measureChild(view, widthMeasureSpec, heightMeasureSpec);
+//            }
+            measureChild(view, widthMeasureSpec, heightMeasureSpec);
             height = height + view.getMeasuredHeight();
         }
         super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(height, MeasureSpec.getMode(heightMeasureSpec)));
@@ -109,22 +110,22 @@ public class RefreshLayout extends ViewGroup{
 
     @Override
     public void computeScroll() {
-        switch (contentState) {
-            case REFRESH_STATE_IDLE:
-                break;
-            case REFRESH_STATE_DRAGGING:
-                Log.i(TAG, "computeScroll: REFRESH_STATE_DRAGGING");
-
-                break;
-            case REFRESH_STATE_SCROLLING_TO_HOLD_POSITION:
-                scrollerToIdle();
-                break;
-            case STATE_HOLDING_POSITION:
-                 break;
-            case REFRESH_STATE_SCROLLING_TO_IDLE:
-                contentState=REFRESH_STATE_IDLE;
-                break;
-        }
+//        switch (contentState) {
+//            case REFRESH_STATE_IDLE:
+//                break;
+//            case REFRESH_STATE_DRAGGING:
+//                Log.i(TAG, "computeScroll: REFRESH_STATE_DRAGGING");
+//
+//                break;
+//            case REFRESH_STATE_SCROLLING_TO_HOLD_POSITION:
+//                scrollerToIdle();
+//                break;
+//            case STATE_HOLDING_POSITION:
+//                 break;
+//            case REFRESH_STATE_SCROLLING_TO_IDLE:
+//                contentState=REFRESH_STATE_IDLE;
+//                break;
+//        }
         if (mScroller.computeScrollOffset()) {
             scrollTo(0, mScroller.getCurrY());
             postInvalidate();
